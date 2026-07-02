@@ -211,7 +211,30 @@ jobs:
           fi
 
           cd ./common
+          set +e
           patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch
+          PATCH_STATUS=$?
+          set -e
+
+          if [ "$PATCH_STATUS" -ne 0 ]; then
+            reject_count=$(find . -name "*.rej" | wc -l)
+            if [ "$reject_count" -eq 1 ] && [ -f fs/proc/base.c.rej ]; then
+              echo "检测到 OnePlus fs/proc/base.c 头文件区域差异，应用兼容补丁"
+              patch -p1 -F 3 < ../../../patches/oneplus_sm8650_susfs_proc_base_include.patch
+              rm -f fs/proc/base.c.rej
+            else
+              echo "SUSFS 补丁存在未处理的 reject:"
+              find . -name "*.rej" -print
+              exit "$PATCH_STATUS"
+            fi
+          fi
+
+          if find . -name "*.rej" | grep -q .; then
+            echo "SUSFS 补丁仍存在 reject:"
+            find . -name "*.rej" -print
+            exit 1
+          fi
+
           echo "完成"
 
       - name: Apply Hide Stuff Patches
