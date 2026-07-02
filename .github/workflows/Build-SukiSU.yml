@@ -126,6 +126,9 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
+      - name: Checkout workflow repository
+        uses: actions/checkout@v4
+
       - name: Configure Git
         run: |
           git config --global user.name "Numbersf"
@@ -220,7 +223,9 @@ jobs:
             reject_count=$(find . -name "*.rej" | wc -l)
             if [ "$reject_count" -eq 1 ] && [ -f fs/proc/base.c.rej ]; then
               echo "检测到 OnePlus fs/proc/base.c 头文件区域差异，应用兼容补丁"
-              patch -p1 -F 3 < ../../../patches/oneplus_sm8650_susfs_proc_base_include.patch
+              compat_patch="$GITHUB_WORKSPACE/patches/oneplus_sm8650_susfs_proc_base_include.patch"
+              test -f "$compat_patch"
+              patch -p1 -F 3 < "$compat_patch"
               rm -f fs/proc/base.c.rej
             else
               echo "SUSFS 补丁存在未处理的 reject:"
@@ -423,8 +428,11 @@ jobs:
       # 下载 SUSFS 模块（CI）
       - name: Download Latest SUSFS Module from CI
         if: ${{ github.event.inputs.SUSFS_CI == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          LATEST_RUN_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          auth_header="Authorization: Bearer ${GH_TOKEN}"
+          LATEST_RUN_ID=$(curl -s -H "$auth_header" \
             "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs?status=success" | \
             jq -r '.workflow_runs[] | select(.head_branch == "v1.5.2+") | .id' | head -n 1)
 
@@ -433,10 +441,10 @@ jobs:
             exit 1
           fi
 
-          ARTIFACT_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          ARTIFACT_URL=$(curl -s -H "$auth_header" \
             "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs/$LATEST_RUN_ID/artifacts" | jq -r '.artifacts[0].archive_download_url')
 
-          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ksu_module_susfs.zip "$ARTIFACT_URL"
+          curl -L -H "$auth_header" -o ksu_module_susfs.zip "$ARTIFACT_URL"
           cp ksu_module_susfs.zip ./AnyKernel3/
 
       # 下载 SUSFS 模块（Release）
