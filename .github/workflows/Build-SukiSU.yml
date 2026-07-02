@@ -89,6 +89,11 @@ on:
         options:
           - gki
           - perf
+      SUKISU_REF:
+        type: string
+        description: "SukiSU Ultra ref/tag/commit；默认 builtin 保持原行为，指定 commit 可复现对应代码"
+        required: true
+        default: builtin
       SUSFS_CI:
         type: boolean
         description: "下载SUSFS模块是否使用CI构建？"
@@ -147,6 +152,7 @@ jobs:
           echo "Selected ANDROID_VERSION: ${{ github.event.inputs.ANDROID_VERSION }}"
           echo "Selected KERNEL_VERSION: ${{ github.event.inputs.KERNEL_VERSION }}"
           echo "Selected BUILD_METHOD: ${{ github.event.inputs.BUILD_METHOD }}"
+          echo "Selected SUKISU_REF: ${{ github.event.inputs.SUKISU_REF }}"
           echo "Selected SUSFS_CI: ${{ github.event.inputs.SUSFS_CI }}"
           echo "Selected ZRAM: ${{ github.event.inputs.ZRAM }}"
           echo "Selected VFS: ${{ github.event.inputs.VFS }}"
@@ -187,8 +193,14 @@ jobs:
       - name: Add KernelSU-SukiSU Ultra
         run: |
           cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+          SUKISU_REF="${{ github.event.inputs.SUKISU_REF }}"
+          if [ -z "$SUKISU_REF" ]; then
+            SUKISU_REF="builtin"
+          fi
+          echo "Using SukiSU Ultra ref: ${SUKISU_REF}"
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s "$SUKISU_REF"
           cd ./KernelSU
+          echo "SukiSU checked out commit: $(git rev-parse --short=12 HEAD)"
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           export KSU_VERSION=$KSU_VERSION
